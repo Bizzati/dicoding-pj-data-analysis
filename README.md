@@ -1,10 +1,14 @@
-# How to run
+# Running requirements
 
-# set up environtment
+## Environment setup
 
+```bash
 pip install -r requirements.txt
-pip install streamlit pandas matplotlib seaborn
+pip install streamlit pandas seaborn matplotlib
+```
 
-# Run Streamlit app
+## Running the streamlit app
 
+```bash
 streamlit run dashboard.py
+```
