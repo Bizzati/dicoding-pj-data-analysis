@@ -1,4 +1,4 @@
-# dicoding-pj-data-analysis
+# How to run
 
 # set up environtment
 
