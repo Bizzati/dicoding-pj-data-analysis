@@ -1,2 +1,10 @@
 # dicoding-pj-data-analysis
-coding camp 25 : Data analysis project
+
+# set up environtment
+
+pip install -r requirements.txt
+pip install streamlit pandas matplotlib seaborn
+
+# Run Streamlit app
+
+streamlit run dashboard.py
