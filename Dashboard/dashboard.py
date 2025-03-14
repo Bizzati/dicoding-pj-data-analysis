@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 
 st.set_page_config(
     page_title="Rental Bicycle Tren",
@@ -16,6 +15,8 @@ st.markdown(
     which is publicly available in http://capitalbikeshare.com/system-data_
     """
 )
+
+# Load data
 df_day = pd.read_csv("https://raw.githubusercontent.com/Bizzati/dicoding-pj-data-analysis/refs/heads/main/Dashboard/main_day.csv")
 df_hour = pd.read_csv("https://raw.githubusercontent.com/Bizzati/dicoding-pj-data-analysis/refs/heads/main/Dashboard/main_hour.csv")
 
@@ -40,32 +41,58 @@ def transform_df(df, is_hourly=False):
 df_day = transform_df(df_day)
 df_hour = transform_df(df_hour, is_hourly=True)
 
-day_temp = df_day.copy()
-hour_temp = df_hour.copy()
-hour_temp.columns = ["date","season","hour","day status","weather","temp °C","humidity %", "windspeed Km/h","rents"] 
-day_temp.columns = ["date","season","day status","weather","temp °C","humidity %", "windspeed Km/h","rents"]
+# Sidebar untuk filter
+st.sidebar.header("Filter Data")
 
-st.write(
-        """
-        Dashboard ini akan menampilkan analisis trend jumlah rental sepeda berdasarkan hari, musim, dan cuaca. 
-        Perlu diketahui data berikut ini telah dipilah sesuai kepentingan analisis.
-        """
+# Filter tanggal
+df_day['dteday'] = pd.to_datetime(df_day['dteday'])
+df_hour['dteday'] = pd.to_datetime(df_hour['dteday'])
+
+min_date = df_day['dteday'].min()
+max_date = df_day['dteday'].max()
+
+start_date = st.sidebar.date_input("Tanggal Mulai", min_date, min_value=min_date, max_value=max_date)
+end_date = st.sidebar.date_input("Tanggal Akhir", max_date, min_value=min_date, max_value=max_date)
+
+# Filter musim dan cuaca
+selected_season = st.sidebar.selectbox(
+    "Pilih Musim",
+    options=['All'] + list(df_day['season'].unique()),
+    index=0
 )
-#Tampil Dataset
+
+selected_weather = st.sidebar.selectbox(
+    "Pilih Kondisi Cuaca",
+    options=['All'] + list(df_day['weathersit'].unique()),
+    index=0
+)
+
+# Filter data berdasarkan pilihan
+filtered_day = df_day[(df_day['dteday'] >= pd.to_datetime(start_date)) & (df_day['dteday'] <= pd.to_datetime(end_date))]
+filtered_hour = df_hour[(df_hour['dteday'] >= pd.to_datetime(start_date)) & (df_hour['dteday'] <= pd.to_datetime(end_date))]
+
+if selected_season != 'All':
+    filtered_day = filtered_day[filtered_day['season'] == selected_season]
+    filtered_hour = filtered_hour[filtered_hour['season'] == selected_season]
+
+if selected_weather != 'All':
+    filtered_day = filtered_day[filtered_day['weathersit'] == selected_weather]
+    filtered_hour = filtered_hour[filtered_hour['weathersit'] == selected_weather]
+
+# Tampil Dataset
 st.write("**Data Per Hari**")
 with st.expander("Data preview"):
-    st.write(day_temp)
+    st.write(filtered_day)
 
 st.write("**Data Per Jam**")
 with st.expander("Data preview"):
-    st.write(hour_temp)
+    st.write(filtered_hour)
 
-st.subheader("Kondisi cuaca per musim")
-
-season_avgs = df_day.groupby("season")["temp"].mean().reset_index()
+# Grafik Suhu per Musim
+st.subheader("Rata-rata Suhu per Musim")
+season_avgs = filtered_day.groupby("season")["temp"].mean().reset_index()
 season_avgs.columns = ["season", "avg_temp"]
 
-# Plotting grafik suhu
 fig, ax = plt.subplots(figsize=(8, 5))
 bars = ax.bar(season_avgs["season"], season_avgs["avg_temp"], color="#1f77b4")
 
@@ -80,42 +107,36 @@ for bar in bars:
         fontsize=10
     )
 
-ax.set_title("Rata-rata Suhu per Musim")
+ax.set_title(f"Rata-rata Suhu per Musim (Filter: {selected_season}, {selected_weather})")
 ax.set_xlabel("Musim")
 ax.set_ylabel("Suhu Rata-Rata (°C)")
 ax.grid(axis="y", linestyle="--", alpha=0.7)
 
 st.pyplot(fig)
 
-plt.figure(figsize=(12, 6))
-sns.countplot(
-    data=df_day,
-    x='season',
-    hue='weathersit',
-    palette='viridis',
-    order=['Fall','Spring', 'Summer', 'Winter']
-)
+# Korelasi jumlah rental dengan musim dan cuaca
+avg_rentals = filtered_day.groupby(["season", "weathersit"])["cnt"].mean().reset_index()
 
-# Plotting seasonal weather
-plt.title('Distribusi Kondisi Cuaca per Musim', fontsize=14, pad=20)
-plt.xlabel('Musim')
-plt.ylabel('Jumlah Hari')
-plt.grid(axis='y', linestyle='--', alpha=0.3)
+pivot_table = avg_rentals.pivot(index="season", columns="weathersit", values="cnt")
 
-plt.legend(
-    title='Kondisi Cuaca',
-    bbox_to_anchor=(1.05, 1),
-    loc='upper left'
-)
+pivot_table.plot(kind="bar", figsize=(8, 5))
+
+plt.xlabel("Musim")
+plt.ylabel("Rata-rata Jumlah Rental")
+plt.title("Rata-rata Jumlah Rental Berdasarkan Musim dan Cuaca")
+plt.legend(title="Kondisi Cuaca")
+plt.grid(axis="y", linestyle="--", alpha=0.5)
+plt.show()
 
 st.pyplot(plt.gcf())
 
+# Pie Chart Perbandingan Hari Kerja vs Libur 
 st.header("Tren kondisi hari dengan penyewaan sepeda")
 
-total_workday = df_day[df_day["workingday"] == "Working Day"].shape[0]
-total_weekend = df_day[df_day["workingday"] == "Weekend/Holiday"].shape[0]
-total_workday_rentals = df_day[df_day["workingday"] == "Working Day"]["cnt"].sum()
-total_weekend_rentals = df_day[df_day["workingday"] == "Weekend/Holiday"]["cnt"].sum()
+total_workday = filtered_day[filtered_day["workingday"] == "Working Day"].shape[0]
+total_weekend = filtered_day[filtered_day["workingday"] == "Weekend/Holiday"].shape[0]
+total_workday_rentals = filtered_day[filtered_day["workingday"] == "Working Day"]["cnt"].sum()
+total_weekend_rentals = filtered_day[filtered_day["workingday"] == "Weekend/Holiday"]["cnt"].sum()
 mean_workday_rentals = total_workday_rentals / total_workday
 mean_weekend_rentals = total_weekend_rentals / total_weekend
 
@@ -140,24 +161,14 @@ ax.pie(
     textprops={'fontsize': 10}
 )
 
-ax.set_title('Perbandingan Rata-Rata Penyewaan Sepeda per Hari:\nHari Kerja vs Hari Libur', fontsize=12, pad=20)
+ax.set_title('Perbandingan Penyewaan', fontsize=12, pad=20)
 ax.axis('equal')
 
 st.pyplot(fig)
 
-st.subheader("Tren pemakaian sepeda dalam sehari")
-
-df_hour['season'] = df_hour['season'].astype(str)
-df_hour['weathersit'] = df_hour['weathersit'].astype(str)
-df_hour = pd.concat([df_hour, df_hour.assign(season='All')])
-df_hour = pd.concat([df_hour, df_hour.assign(weathersit='All')])
-
-# dropdown
-col1, col2 = st.columns(2)
-selected_season = col1.selectbox("Pilih Musim", options=df_hour['season'].unique(), index=0)
-selected_weather = col2.selectbox("Pilih Kondisi Cuaca", options=df_hour['weathersit'].unique(), index=0)
-filtered_data = df_hour[(df_hour['season'] == selected_season) & (df_hour['weathersit'] == selected_weather)]
-hourly_avg = filtered_data.groupby(["hr", "workingday"])["cnt"].mean().reset_index()
+# Grafik Tren Harian (Per Jam)
+st.subheader("Tren Pemakaian Sepeda dalam Sehari")
+hourly_avg = filtered_hour.groupby(["hr", "workingday"])["cnt"].mean().reset_index()
 
 plt.figure(figsize=(12, 6))
 sns.lineplot(
@@ -172,8 +183,7 @@ sns.lineplot(
     linewidth=2.5
 )
 
-# Plotting graf per hari
-plt.title(f"Penyewaan Sepeda dalam rentang hari (Musim: {selected_season}, Cuaca: {selected_weather})")
+plt.title(f"Penyewaan Sepeda (Filter: {selected_season}, {selected_weather})")
 plt.xlabel("Jam", fontsize=12)
 plt.ylabel("Rata-rata Penyewaan Sepeda", fontsize=12)
 plt.xticks(range(24), [f"{h:02d}:00" for h in range(24)], rotation=45)
