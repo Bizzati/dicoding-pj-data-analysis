@@ -131,7 +131,7 @@ plt.show()
 st.pyplot(plt.gcf())
 
 # Pie Chart Perbandingan Hari Kerja vs Libur 
-st.header("Tren kondisi hari dengan penyewaan sepeda")
+st.header("Rata-rata penyewaan sepeda berdasarkan hari kerja vs hari libur")
 
 total_workday = filtered_day[filtered_day["workingday"] == "Working Day"].shape[0]
 total_weekend = filtered_day[filtered_day["workingday"] == "Weekend/Holiday"].shape[0]
@@ -167,7 +167,7 @@ ax.axis('equal')
 st.pyplot(fig)
 
 # Grafik Tren Harian (Per Jam)
-st.subheader("Tren Pemakaian Sepeda dalam Sehari")
+st.subheader("Pola Pemakaian Sepeda dalam Sehari")
 hourly_avg = filtered_hour.groupby(["hr", "workingday"])["cnt"].mean().reset_index()
 
 plt.figure(figsize=(12, 6))
